@@ -1,0 +1,16 @@
+[
+    {
+        "id": "imtsqpxlywdrjtbyzcsf",
+        "organization_id": "qnynpbdyqxvnteiwrrdt",
+        "name": "BH Project",
+        "region": "us-west-1",
+        "status": "ACTIVE_HEALTHY",
+        "database": {
+            "host": "db.imtsqpxlywdrjtbyzcsf.supabase.co",
+            "version": "15.8.1.073",
+            "postgres_engine": "15",
+            "release_channel": "ga"
+        },
+        "created_at": "2025-02-17T20:38:05.419441Z"
+    }
+]
