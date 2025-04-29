@@ -97,3 +97,37 @@ This structure follows several important principles:
 5. Authentication and authorization - Using middleware for route protection and auth redirects
    - Middleware.ts handles redirection of authenticated users from home to dashboard
    - AuthProvider context manages auth state throughout the application
+
+# Project Structure
+
+This project follows a specific structure that all conversations should be aware of:
+
+- The main codebase is in the `src/` directory
+- Next.js app router files are in `src/app/` (not in `/app/`)
+- Components are in `src/components/`
+- All paths should be referenced relative to the project root `/Users/bh/github/expense-tracker/`
+
+## Important Path Information
+
+- Next.js pages: `src/app/`
+- Components: `src/components/`
+- Utilities: `src/lib/`
+- Types: `src/types/`
+- Configuration: `src/config/`
+
+## Component Structure
+
+- Common UI components: `src/components/ui/`
+- Layout components: `src/components/layout/`
+- Page-specific components:
+  - Transaction components: `src/components/transactions/`
+  - Upload components: `src/components/upload/`
+
+## Pages Structure
+
+- Authentication pages: `src/app/(auth)/`
+- Dashboard pages: `src/app/(dashboard)/`
+  - Main dashboard: `src/app/(dashboard)/dashboard/`
+  - Upload transactions: `src/app/(dashboard)/upload/`
+
+When searching for files or directories, always use the full path with `src/` included.
