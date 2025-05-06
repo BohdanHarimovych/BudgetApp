@@ -25,3 +25,8 @@
   - Updated home page to redirect authenticated users to dashboard
   - Secured dashboard routes to require authentication
   - Installed @supabase/ssr package for server-side and client-side auth
+
+## 2023-11-20
+- Implemented CSV transaction upload page
+- Created reusable PageHeader component for consistent layout across pages
+- Set up the upload interface with proper UI feedback following design specifications

@@ -7,6 +7,7 @@ This document outlines the schema of tables in the public schema of the BH Proje
 The database contains the following tables in the public schema:
 - `category` - Categories for transactions and merchants
 - `merchant` - Merchant information
+- `merchant_map` - Mapping of raw merchant string or decscription to a normalized merchant in `merchant` table
 - `transaction_sources` - Sources of transactions
 - `transactions` - Transaction records
 
@@ -32,6 +33,15 @@ Stores merchant information.
 | created_at | timestamp with time zone | no | now() | Creation timestamp |
 | name | text | no | - | Merchant name (unique) |
 | category_id | uuid | yes | - | Reference to category (foreign key) |
+
+### Merchant Map Table
+
+Serves as a mapping between non-normalized merchant string or a description (if merchant column doesn't exist in a csv) to a normalized merchant entity.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| merchant_src | text | no | - | Primary key |
+| merchant_id | uuid | yes | - | Reference to merchant (foreign key) |
 
 ### Transaction Sources Table
 
