@@ -10,8 +10,53 @@ const TransactionSchema = z.object({
   amount: z.number()
     .or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(val => parseFloat(val))),
   description: z.string().min(1, { message: 'Description is required' }),
-  category: z.string().optional()
+  type: z.string().min(1, { message: 'Type is required' }),
+  category: z.string().optional(),
+  merchant: z.string().optional(),
+  post_date: z.string().optional()
+    .refine(val => !val || !isNaN(Date.parse(val)), { message: 'Invalid post date format' }),
+  purchased_by: z.string().optional()
 });
+
+
+// Define header mappings from CSV to schema fields
+const headerMappings: Record<string, string> = {
+  // Date fields
+  'transaction date': 'transaction_date',
+  'date': 'transaction_date',
+  'post date': 'post_date', 
+  'clearing date': 'post_date',
+  
+  // Description/merchant fields
+  'description': 'description',
+  'merchant': 'merchant',
+  'merchant name': 'merchant',
+  
+  // Amount fields
+  'amount': 'amount',
+  'amount (usd)': 'amount',
+  
+  // Type fields
+  'type': 'type',
+  'transaction type': 'type',
+  'category': 'category',
+  
+  // Additional fields
+  'purchased by': 'purchased_by',
+  'purchaser': 'purchased_by'
+};
+
+// Helper function to normalize header names
+function normalizeHeader(header: string): string {
+  return header.toLowerCase().trim();
+}
+
+// Helper function to map CSV headers to schema fields
+function mapHeader(header: string): string {
+  const normalized = normalizeHeader(header);
+  return headerMappings[normalized] || normalized;
+}
+
 
 export async function POST(request: Request) {
   try {
@@ -34,7 +79,7 @@ export async function POST(request: Request) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      transformHeader: (header: string) => header.trim().toLowerCase()
+      transformHeader: (header: string) => mapHeader(header)
     });
     
     if (parseResult.errors.length > 0) {
@@ -88,21 +133,92 @@ export async function POST(request: Request) {
           // Create transaction object
           const transaction = {
             transaction_date: new Date(validData.transaction_date).toISOString(),
+            post_date: validData.post_date ? new Date(validData.post_date).toISOString() : null,
             amount: validData.amount,
             description: validData.description,
+            type: validData.type,
+            purchased_by: validData.purchased_by || null,
+            merchant_src: validData.merchant || null,
             user_id: user.id,
-            category_id: null // Will be updated if category exists
+            merchant_id: null, // Will be updated if merchant mapping exists
+            category_id: null // Will be updated if category exists or based on merchant
           };
           
-          // Check if category needs to be processed
-          if (validData.category) {
+          // Check if merchant needs to be processed
+          if (validData.merchant) {
+            try {
+              // First, check if merchant exists directly in the merchant table
+              const { data: directMerchantData, error: directMerchantError } = await supabase
+                .from('merchant')
+                .select('id, category_id')
+                .eq('name', validData.merchant)
+                .maybeSingle();
+              
+              if (directMerchantError) throw directMerchantError;
+              
+              if (directMerchantData) {
+                // Direct match found in merchant table
+                transaction.merchant_id = directMerchantData.id;
+                
+                // Set category_id if available from merchant
+                if (directMerchantData.category_id) {
+                  transaction.category_id = directMerchantData.category_id;
+                }
+              } else {
+                // No direct match, check merchant_map
+                const { data: merchantMapData, error: merchantMapError } = await supabase
+                  .from('merchant_map')
+                  .select('merchant_id')
+                  .eq('merchant_src', validData.merchant)
+                  .maybeSingle();
+                
+                if (merchantMapError) throw merchantMapError;
+                
+                if (merchantMapData && merchantMapData.merchant_id) {
+                  // Merchant mapping exists, set merchant_id
+                  transaction.merchant_id = merchantMapData.merchant_id;
+                  
+                  // Get the merchant details to set category_id
+                  const { data: merchantData, error: merchantError } = await supabase
+                    .from('merchant')
+                    .select('category_id')
+                    .eq('id', merchantMapData.merchant_id)
+                    .maybeSingle();
+                  
+                  if (!merchantError && merchantData && merchantData.category_id) {
+                    transaction.category_id = merchantData.category_id;
+                  }
+                } else {
+                  // If merchantMapData is null, it means the entry doesn't exist yet
+                  // We already checked for existence with the previous maybeSingle() query
+                  if (merchantMapData === null) {
+                    // Insert into merchant_map table with null merchant_id to indicate unmapped merchant
+                    const { error: mapError } = await supabase
+                      .from('merchant_map')
+                      .insert({
+                        merchant_src: validData.merchant,
+                        merchant_id: null // Leave as null to indicate it needs manual mapping
+                      });
+                    
+                    if (mapError) throw mapError;
+                  }
+                  // We don't set merchant_id on the transaction since there's no mapping yet
+                }
+              }
+            } catch (error) {
+              console.error('Merchant processing error:', error);
+              // Continue with transaction, but without merchant info
+            }
+          }
+          
+          // Check if category needs to be processed (only if not already set by merchant)
+          if (validData.category && !transaction.category_id) {
             try {
               // Look for existing category or create a new one
               const { data: categoryData, error: categoryError } = await supabase
-                .from('categories')
+                .from('category')
                 .select('id')
                 .eq('title', validData.category)
-                .eq('user_id', user.id)
                 .maybeSingle();
               
               if (categoryError) throw categoryError;
@@ -112,10 +228,9 @@ export async function POST(request: Request) {
               } else {
                 // Create new category
                 const { data: newCategory, error: newCategoryError } = await supabase
-                  .from('categories')
+                  .from('category')
                   .insert({
-                    title: validData.category,
-                    user_id: user.id
+                    title: validData.category
                   })
                   .select('id')
                   .single();

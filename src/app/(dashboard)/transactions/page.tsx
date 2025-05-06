@@ -16,7 +16,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     async function fetchTransactions() {
       try {
-        const response = await fetch('/api/transactions?days=30');
+        const response = await fetch('/api/transactions?days=360');
         if (!response.ok) {
           throw new Error('Failed to fetch transactions');
         }
